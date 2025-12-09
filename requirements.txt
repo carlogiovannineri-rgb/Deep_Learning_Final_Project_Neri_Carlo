@@ -1,0 +1,28 @@
+# ISIC 2024 Skin Cancer Detection - Requirements
+# Python 3.8+ required
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+h5py>=3.9.0
+
+# Machine Learning
+scikit-learn>=1.3.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# Utilities
+tqdm>=4.65.0
+
+# Jupyter (for local execution)
+jupyter>=1.0.0
+ipykernel>=6.25.0
