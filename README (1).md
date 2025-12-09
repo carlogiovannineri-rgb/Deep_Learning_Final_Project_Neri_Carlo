@@ -1,115 +1,182 @@
-# 🎨 Monet Style Transfer with CycleGAN
+# Skin Cancer Detection using Deep Learning
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.18-orange.svg)](https://tensorflow.org/)
-[![Kaggle](https://img.shields.io/badge/Kaggle-Competition-20BEFF.svg)](https://www.kaggle.com/competitions/gan-getting-started)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> Transform ordinary photographs into paintings in the style of Claude Monet using CycleGAN
+A multimodal deep learning approach for detecting malignant skin lesions using the ISIC 2024 Challenge dataset (SLICE-3D). This project was developed as part of the **DTSA 5511 - Introduction to Deep Learning** final project.
 
-<p align="center">
-  <img src="images/sample_transformation.png" alt="Sample Transformation" width="800"/>
-</p>
+![ROC Curves](https://img.shields.io/badge/Best%20AUC-0.93-brightgreen)
+![pAUC](https://img.shields.io/badge/pAUC%40TPR80-0.15-blue)
 
-## 📋 Table of Contents
+---
+
+## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
+- [Key Results](#key-results)
 - [Dataset](#dataset)
+- [Methodology](#methodology)
+- [Model Architectures](#model-architectures)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Results](#results)
 - [Project Structure](#project-structure)
+- [Key Findings](#key-findings)
+- [Limitations](#limitations)
+- [Future Work](#future-work)
 - [References](#references)
-- [License](#license)
 
-## 🎯 Overview
+---
 
-This project implements a **CycleGAN** (Cycle-Consistent Generative Adversarial Network) to perform unpaired image-to-image translation, specifically transforming regular photographs into paintings that resemble the impressionist style of **Claude Monet**.
+## Overview
 
-The project was developed as part of the Kaggle competition ["I'm Something of a Painter Myself"](https://www.kaggle.com/competitions/gan-getting-started).
+Skin cancer is one of the most common cancers worldwide, with melanoma being the deadliest form. Early detection significantly improves survival rates, but access to dermatological expertise is limited in many regions.
 
-### What is CycleGAN?
+This project develops and compares multiple deep learning approaches for automated skin lesion classification:
 
-CycleGAN is designed for **unpaired image-to-image translation**. Unlike traditional paired translation methods, CycleGAN can learn to transform images between two domains without requiring exact image pairs.
+- **Image-based models**: Baseline CNN, EfficientNet-B0
+- **Tabular model**: MLP using automatically computed lesion features
+- **Multimodal model**: Combining image and tabular features
+- **Ensemble methods**: Averaging predictions from multiple models
 
-**Key Innovation - Cycle Consistency:**
-- If we transform Photo → Monet → Photo, we should get back the original photo
-- This constraint helps preserve the content while changing the style
-- Formula: `F(G(x)) ≈ x` and `G(F(y)) ≈ y`
+### The Challenge
 
-## ✨ Features
+The dataset exhibits **extreme class imbalance** (~1:1000 ratio), making this a "needle in a haystack" problem where naive classifiers fail despite high accuracy scores.
 
-- **Complete CycleGAN Implementation** with ResNet-based generators and PatchGAN discriminators
-- **Instance Normalization** for improved style transfer quality
-- **Comprehensive EDA** with color distribution analysis
-- **Data Augmentation** pipeline (random jitter, cropping, flipping)
-- **Training Visualization** with loss curves and sample outputs
-- **Kaggle Submission** ready (generates 7,000+ Monet-style images)
+---
 
-## 🏗️ Architecture
+## Key Results
 
-### Model Components
+### Model Performance
 
-| Component | Architecture | Parameters |
-|-----------|-------------|------------|
-| Generator G (Photo→Monet) | Encoder-ResNet-Decoder | ~11M |
-| Generator F (Monet→Photo) | Encoder-ResNet-Decoder | ~11M |
-| Discriminator D_Monet | PatchGAN (70×70) | ~2.7M |
-| Discriminator D_Photo | PatchGAN (70×70) | ~2.7M |
+| Model | AUC | pAUC@80% TPR |
+|-------|-----|--------------|
+| **Ensemble (EfficientNet + Tabular)** | **0.9305** | **0.1509** |
+| Weighted Ensemble | 0.9290 | 0.1510 |
+| Tabular MLP | 0.9107 | 0.1393 |
+| Multimodal | 0.9085 | 0.1343 |
+| EfficientNet-B0 | 0.8932 | 0.1254 |
+| Baseline CNN | 0.6763 | 0.0322 |
 
-### Generator Architecture
+### Top Predictive Features
+
+| Rank | Feature | Importance | Clinical Meaning |
+|------|---------|------------|------------------|
+| 1 | `tbp_lv_H` | 0.068 | Hue (color tone) |
+| 2 | `clin_size_long_diam_mm` | 0.049 | Lesion diameter |
+| 3 | `tbp_lv_nevi_confidence` | 0.043 | AI nevus score |
+| 4 | `tbp_lv_minorAxisMM` | 0.035 | Lesion minor axis |
+| 5 | `tbp_lv_deltaLBnorm` | 0.024 | Color contrast |
+
+---
+
+## Dataset
+
+**Source**: [ISIC 2024 Challenge - SLICE-3D](https://www.kaggle.com/competitions/isic-2024-challenge)
+
+| Characteristic | Value |
+|----------------|-------|
+| Total Images | 401,059 |
+| Malignant Cases | 393 (0.098%) |
+| Benign Cases | 400,666 (99.902%) |
+| Image Source | 3D Total Body Photography (Vectra WB360) |
+| Image Type | 15×15mm lesion crops |
+| Tabular Features | 55 columns including ABCDE criteria |
+
+### Class Imbalance
+
 ```
-Input (256×256×3)
-    ↓
-Encoder: Conv → InstanceNorm → ReLU (×3)
-    ↓
-ResNet Blocks (×6)
-    ↓
-Decoder: ConvTranspose → InstanceNorm → ReLU (×3)
-    ↓
-Output: Conv → Tanh (256×256×3)
+Benign:    ████████████████████████████████████████ 400,666 (99.9%)
+Malignant: █ 393 (0.1%)
 ```
 
-### Loss Functions
+---
 
-1. **Adversarial Loss**: Binary Cross-Entropy for real/fake classification
-2. **Cycle Consistency Loss**: L1 loss ensuring `F(G(x)) ≈ x`
-3. **Identity Loss**: Helps preserve colors when input is already in target domain
+## Methodology
 
-## 📊 Dataset
+### 1. Data Splitting Strategy
 
-The dataset consists of two unpaired image collections:
+To prevent **data leakage**, we implement patient-level splitting:
 
-| Dataset | Images | Size | Format |
-|---------|--------|------|--------|
-| Monet Paintings | ~300 | 256×256×3 | TFRecord/JPEG |
-| Photographs | ~7,038 | 256×256×3 | TFRecord/JPEG |
+```python
+# All lesions from the same patient stay together
+train_patients, val_patients = train_test_split(
+    patient_ids, test_size=0.2, stratify=has_malignant
+)
+```
 
-### Data Characteristics
+This ensures the model learns generalizable cancer features rather than patient-specific characteristics.
 
-- **Monet Paintings**: Impressionistic brushstrokes, soft edges, warm tones, emphasis on blue/green (water lilies, landscapes)
-- **Photographs**: Sharp details, realistic colors, diverse subjects
+### 2. Handling Class Imbalance
 
-## 🚀 Installation
+We employ a **moderate approach** to avoid the "double punishment" problem:
+
+| Technique | Implementation |
+|-----------|----------------|
+| Undersampling | 80,000 samples (all malignant + subset benign) |
+| Loss Weighting | `pos_weight = 50` (capped to avoid over-correction) |
+| Threshold Optimization | Finding optimal operating points |
+
+### 3. Evaluation Metrics
+
+- **AUC-ROC**: Overall discrimination ability
+- **pAUC@80% TPR**: Partial AUC above 80% sensitivity (competition metric)
+- **Precision/Recall**: At various thresholds for clinical interpretation
+
+---
+
+## Model Architectures
+
+### Baseline CNN
+```
+Conv2d(3→32) → BatchNorm → ReLU → MaxPool
+Conv2d(32→64) → BatchNorm → ReLU → MaxPool
+Conv2d(64→128) → BatchNorm → ReLU → MaxPool
+Conv2d(128→256) → BatchNorm → ReLU → MaxPool
+AdaptiveAvgPool → Dropout(0.5) → FC(256→128) → FC(128→1)
+```
+
+### EfficientNet-B0
+- Pretrained on ImageNet
+- Custom classifier head with dropout
+
+### Tabular MLP
+```
+FC(20→128) → BatchNorm → ReLU → Dropout(0.3)
+FC(128→64) → BatchNorm → ReLU → Dropout(0.3)
+FC(64→32) → BatchNorm → ReLU → Dropout(0.2)
+FC(32→1)
+```
+
+### Multimodal Fusion
+```
+Image → EfficientNet → 1280 dims ─┐
+                                  ├─→ Concat → FC(1312→256→64→1)
+Tabular → MLP → 32 dims ──────────┘
+```
+
+---
+
+## Installation
 
 ### Prerequisites
 
 - Python 3.8+
 - CUDA-capable GPU (recommended)
-- 16GB+ RAM
+- ~10GB disk space for dataset
 
 ### Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/carlogiovannineri-rgb/Week-5-GANs.git
-cd Week-5-GANs
+git clone https://github.com/yourusername/isic-2024-skin-cancer-detection.git
+cd isic-2024-skin-cancer-detection
 
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate  # Windows
 
 # Install dependencies
 pip install -r requirements.txt
@@ -118,132 +185,176 @@ pip install -r requirements.txt
 ### Requirements
 
 ```txt
-tensorflow>=2.10.0
-numpy>=1.21.0
-matplotlib>=3.5.0
-Pillow>=9.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+h5py>=3.9.0
+Pillow>=10.0.0
+tqdm>=4.65.0
 ```
 
-## 💻 Usage
+---
 
-### Training
+## Usage
 
-```python
-# Run the Jupyter notebook
-jupyter notebook monet-dl.ipynb
+### Option 1: Kaggle 
+
+1. Go to [Kaggle Notebooks](https://www.kaggle.com/code)
+2. Create a new notebook
+3. Add the ISIC 2024 dataset: `isic-2024-challenge`
+4. Upload `isic_2024_skin_cancer_multimodal.ipynb`
+5. Enable GPU: Settings → Accelerator → GPU T4 x2
+6. Run All
+
+### Option 2: Local Execution
+
+```bash
+# Download dataset from Kaggle
+kaggle competitions download -c isic-2024-challenge
+
+# Run notebook
+jupyter notebook isic_2024_skin_cancer_multimodal.ipynb
 ```
 
-Or execute the training script:
+### Expected Runtime
 
-```python
-from model import CycleGAN
+| Component | Time (GPU) |
+|-----------|------------|
+| EDA | ~5 min |
+| Model Training (4 models) | ~3-4 hours |
+| Evaluation & Plots | ~15 min |
+| **Total** | **~4 hours** |
 
-# Initialize model
-cyclegan = CycleGAN(
-    img_size=256,
-    n_resnet_blocks=6,
-    lambda_cycle=10.0,
-    lambda_identity=0.5
-)
+---
 
-# Train
-cyclegan.train(epochs=25, batch_size=1)
-```
-
-### Inference
-
-```python
-from model import load_generator
-import tensorflow as tf
-
-# Load trained generator
-generator = load_generator('checkpoints/generator_g.h5')
-
-# Transform image
-photo = tf.io.read_file('input_photo.jpg')
-photo = tf.image.decode_jpeg(photo, channels=3)
-photo = tf.image.resize(photo, [256, 256])
-photo = (photo / 127.5) - 1.0
-
-monet_style = generator(tf.expand_dims(photo, 0), training=False)
-```
-
-## 📈 Results
-
-### Training Progress
-
-The model was trained for **25 epochs** with the following hyperparameters:
-
-| Parameter | Value |
-|-----------|-------|
-| Learning Rate | 2e-4 |
-| Beta_1 | 0.5 |
-| Batch Size | 1 |
-| Lambda Cycle | 10.0 |
-| Lambda Identity | 0.5 |
-
-### Sample Transformations
-
-| Original Photo | Monet Style | Cycle Reconstruction |
-|----------------|-------------|---------------------|
-| ![](images/photo1.jpg) | ![](images/monet1.jpg) | ![](images/cycle1.jpg) |
-| ![](images/photo2.jpg) | ![](images/monet2.jpg) | ![](images/cycle2.jpg) |
-
-### Loss Curves
-
-<p align="center">
-  <img src="images/loss_curves.png" alt="Loss Curves" width="700"/>
-</p>
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-Week-5-GANs/
-├── monet-dl.ipynb          # Main Jupyter notebook
-├── README.md               # This file
-├── requirements.txt        # Python dependencies
-├── images/                 # Sample images and visualizations
-│   ├── sample_transformation.png
-│   ├── loss_curves.png
-│   └── ...
-├── checkpoints/            # Saved model weights
-│   ├── generator_g.h5
-│   ├── generator_f.h5
-│   └── ...
-└── generated_images/       # Output Monet-style images
+isic-2024-skin-cancer-detection/
+│
+├── README.md                              # This file
+├── requirements.txt                       # Python dependencies
+├── LICENSE                                # MIT License
+│
+├── notebooks/
+│   └── isic_2024_skin_cancer_multimodal.ipynb  # Main notebook
+│
+├── src/                                   # (Optional) Modular code
+│   ├── data/
+│   │   └── dataset.py                     # Dataset classes
+│   ├── models/
+│   │   ├── baseline_cnn.py
+│   │   ├── tabular_mlp.py
+│   │   └── multimodal.py
+│   └── utils/
+│       ├── metrics.py                     # pAUC, threshold optimization
+│       └── visualization.py
+│
+└── results/                               # Generated outputs
+    ├── figures/
+    └── model_checkpoints/
 ```
 
-## 📚 References
+---
 
-1. **CycleGAN Paper**: Zhu, J. Y., Park, T., Isola, P., & Efros, A. A. (2017). *Unpaired Image-to-Image Translation using Cycle-Consistent Adversarial Networks*. [arXiv:1703.10593](https://arxiv.org/abs/1703.10593)
+## Key Findings
 
-2. **Original GAN Paper**: Goodfellow, I., et al. (2014). *Generative Adversarial Nets*. [NeurIPS](https://papers.nips.cc/paper/5423-generative-adversarial-nets)
+### 1. Tabular Features Are Surprisingly Powerful
 
-3. **Instance Normalization**: Ulyanov, D., Vedaldi, A., & Lempitsky, V. (2016). *Instance Normalization: The Missing Ingredient for Fast Stylization*. [arXiv:1607.08022](https://arxiv.org/abs/1607.08022)
+The Tabular MLP using only metadata features achieved **AUC 0.91**, competitive with image-based deep learning models. This suggests that the automatically computed ABCDE features contain highly discriminative information.
 
-4. **PatchGAN**: Isola, P., et al. (2017). *Image-to-Image Translation with Conditional Adversarial Networks*. [arXiv:1611.07004](https://arxiv.org/abs/1611.07004)
+### 2. Ensemble Methods Improve Robustness
 
-## 🔮 Future Improvements
+Combining EfficientNet and Tabular MLP predictions improved AUC from 0.89/0.91 to **0.93**, demonstrating complementary information capture.
 
-- [ ] Learning rate scheduling with linear decay
-- [ ] Attention mechanisms for better feature extraction
-- [ ] Perceptual loss using VGG features
-- [ ] Multi-scale discriminators
-- [ ] Progressive training for higher resolution
+### 3. The Precision-Recall Trade-off
 
-## 📄 License
+At the optimal F1 threshold (0.61):
+- **Precision**: 24%
+- **Recall**: 17%
+- Interpretation: A dermatologist would review ~4 images to find 1 true cancer
+
+For screening (threshold ~0.05):
+- Higher recall but more false positives
+- Appropriate when missing cancer is more costly than additional examinations
+
+### 4. Patient-Level Performance Drop
+
+```
+Lesion-Level AUC: 0.9305
+Patient-Level AUC: 0.7522
+```
+
+When aggregating predictions per patient, performance decreases significantly. This has important implications for clinical deployment.
+
+---
+
+## Limitations
+
+1. **Limited malignant samples**: Only 72 malignant lesions in validation, leading to high metric variance
+
+2. **Single train/val split**: Cross-validation would provide more robust estimates but was computationally prohibitive
+
+3. **Simple fusion architecture**: Concatenation-based fusion; attention mechanisms might capture better feature interactions
+
+4. **Subset of data**: Used 80k of 401k images due to computational constraints
+
+5. **No external validation**: Results may not generalize to different imaging devices or populations
+
+---
+
+## 🔮 Future Work
+
+- [ ] Implement K-fold cross-validation for robust metrics
+- [ ] Try Vision Transformers (ViT) for image encoding
+- [ ] Attention-based multimodal fusion
+- [ ] GradCAM visualizations for explainability
+- [ ] Full dataset training with curriculum learning
+- [ ] External validation on different datasets
+
+---
+
+## References
+
+1. International Skin Imaging Collaboration. *SLICE-3D 2024 Challenge Dataset*. [https://doi.org/10.34970/2024-slice-3d](https://doi.org/10.34970/2024-slice-3d)
+
+2. Rotemberg, V., et al. (2021). *A patient-centric dataset of images and metadata for identifying melanomas using clinical context*. Scientific Data.
+
+3. Tan, M., & Le, Q. (2019). *EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks*. ICML.
+
+4. Esteva, A., et al. (2017). *Dermatologist-level classification of skin cancer with deep neural networks*. Nature, 542, 115-118.
+
+---
+
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👤 Author
+---
+
+## Acknowledgments
+
+- ISIC Archive for providing the dataset
+- Kaggle for computational resources
+- Course instructors for guidance
+
+---
+
+## Author
 
 **Carlo Neri**
 
-- GitHub: [@carlogiovannineri-rgb](https://github.com/carlogiovannineri-rgb)
-- Kaggle: [Profile](https://www.kaggle.com/)
+- Course: DTSA 5511 - Introduction to Deep Learning
+- Institution: CU Boulder
+- Date: December 2025
 
 ---
 
 <p align="center">
-  Made with ❤️ and TensorFlow
+  <i></i>
 </p>
+
